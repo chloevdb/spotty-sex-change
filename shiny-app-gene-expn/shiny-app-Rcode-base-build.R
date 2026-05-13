@@ -15,16 +15,29 @@ library(shiny)
 library(ggplot2)
 library(tidyr)
 library(dplyr)
-library(readr)
+library(DESeq2)
 library(here)
 
 # ── Data prep (runs once on startup) ──────────────────────────────────────────
+
+counts.table <- read.table(here("data-files/readspergene_v2.matrix"),
+                           header = TRUE, sep = "\t",
+                           stringsAsFactors = FALSE, row.names = "GeneID")
 
 coldata.table <- read.table(here("data-files/coldata_v2.3.2.txt"),
                             header = TRUE, sep = "\t",
                             stringsAsFactors = FALSE, row.names = "sample")
 
-vsd_normalized_counts <- read_tsv("https://raw.githubusercontent.com/chloevdb/spotty-sex-change/main/shiny-app-gene-expn/data-files/vsd_normalized_counts.tsv")
+dds <- DESeqDataSetFromMatrix(countData = counts.table,
+                              colData   = coldata.table,
+                              design    = ~ histov22)
+dds <- estimateSizeFactors(dds)
+vsd <- vst(dds, blind = TRUE)
+
+vsd_normalized_counts <- as.data.frame(assay(vsd))
+vsd_normalized_counts$GeneID <- rownames(vsd_normalized_counts)
+rownames(vsd_normalized_counts) <- NULL
+vsd_normalized_counts <- vsd_normalized_counts[, c(97, 1:96)]
 
 data.long <- pivot_longer(vsd_normalized_counts,
                           cols = -GeneID,
