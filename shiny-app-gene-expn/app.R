@@ -1,6 +1,6 @@
 # ── Install missing packages if needed ────────────────────────────────────────
 
-required_packages <- c("shiny", "ggplot2", "tidyr", "dplyr", "here")
+required_packages <- c("shiny", "ggplot2", "tidyr", "dplyr", "here","readr")
 
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if (length(new_packages) > 0) install.packages(new_packages)
