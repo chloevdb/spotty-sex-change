@@ -1,2 +1,4 @@
 .DS_Store
 *.Rproj.*
+.positai
+shiny-app-gene-expn/.Rhistory

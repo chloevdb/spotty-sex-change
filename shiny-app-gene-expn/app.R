@@ -58,6 +58,33 @@ ui <- fluidPage(
         multiple = TRUE
       ),
       helpText("Hold Ctrl / ⌘ to select multiple genes."),
+      checkboxInput(
+        inputId = "free_scales",
+        label   = "Free axis scales (each gene scaled independently)",
+        value   = TRUE
+      ),
+      checkboxGroupInput(
+        inputId  = "selected_groups",
+        label    = "Sample groups to display",
+        choices  = custom_order,
+        selected = custom_order
+      ),
+      checkboxGroupInput(
+        inputId  = "plot_type",
+        label    = "Plot type",
+        choices  = c("Boxplot" = "boxplot", "Violin" = "violin"),
+        selected = "boxplot"
+      ),
+      sliderInput(
+        inputId = "ncol",
+        label   = "Number of columns",
+        min     = 1, max = 6, value = 3, step = 1
+      ),
+      sliderInput(
+        inputId = "plot_height",
+        label   = "Plot height (px)",
+        min     = 300, max = 1200, value = 600, step = 50
+      ),
       hr(),
       selectInput(
         inputId  = "file_format",
@@ -68,7 +95,8 @@ ui <- fluidPage(
       downloadButton("download_plot", "Download plot")
     ),
     mainPanel(
-      plotOutput("boxplot", height = "600px")
+      uiOutput("boxplot_ui")
+      
     )
   )
 )
@@ -81,12 +109,17 @@ server <- function(input, output, session) {
     req(input$genes)
     data.long.coldata %>%
       filter(GeneID %in% input$genes) %>%
+      filter(histov22 %in% input$selected_groups) %>%   
       mutate(histov22 = factor(histov22, levels = custom_order)) %>%
       ggplot(aes(x = histov22, y = expression, fill = histov22)) +
-      geom_boxplot(size = 0.3, outlier.size = 0.3) +
-      scale_fill_manual(values = custom_colors) +
+      (if ("violin" %in% input$plot_type) geom_violin(alpha = 0.5) else NULL) +
+      (if ("boxplot" %in% input$plot_type) geom_boxplot(outlier.size = 0.5) else NULL) +      scale_fill_manual(values = custom_colors) +
       labs(y = "Variance stabilised counts", x = "Sample") +
-      facet_wrap(~ GeneID, scales = "free") +
+      facet_wrap(~ GeneID,
+                 scales      = if (input$free_scales) "free" else "fixed",
+                 ncol        = input$ncol,
+                 axes        = "all",
+                 axis.labels = "all") +
       theme_classic() +
       theme(
         axis.line        = element_line(colour = "black"),
@@ -99,6 +132,10 @@ server <- function(input, output, session) {
         strip.background = element_blank(),
         legend.position  = "none"
       )
+  })
+  
+  output$boxplot_ui <- renderUI({
+    plotOutput("boxplot", height = paste0(input$plot_height, "px"))
   })
   
   output$boxplot <- renderPlot({ make_plot() })
