@@ -5,9 +5,6 @@ required_packages <- c("shiny", "ggplot2", "tidyr", "dplyr", "here","readr")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if (length(new_packages) > 0) install.packages(new_packages)
 
-# DESeq2 is from Bioconductor so needs separate handling
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-if (!requireNamespace("DESeq2", quietly = TRUE)) BiocManager::install("DESeq2")
 
 # ── Load packages ─────────────────────────────────────────────────────────────
 
