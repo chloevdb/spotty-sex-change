@@ -34,14 +34,19 @@ data.long <- pivot_longer(vsd_normalized_counts,
 data.long.coldata <- merge(data.long, coldata.table,
                            by.x = "Sample", by.y = "samplenames")
 
-custom_order  <- c("F", "ET", "MT", "LT", "TPM", "IPM")
-custom_colors <- c("#F564E3", "#984EA3", "#00BFC4",
-                   "#4DAF4A", "#619CFF",  "#CD9600")
+custom_orderv22  <- c("F", "ET", "MT", "LT", "TPM", "IPM")
+custom_colorsv22 <- c("#F564E3", "#984EA3", "#00BFC4",
+                      "#4DAF4A", "#619CFF", "#CD9600")
+
+custom_orderv2  <- c("NBF", "BF", "ET", "MT", "LT", "TPM", "IPM")
+custom_colorsv2 <- c("#F564E3", "#C77CFF", "#984EA3", "#00BFC4",
+                     "#4DAF4A", "#619CFF", "#CD9600")
 
 data.long.coldata$histov22 <- factor(data.long.coldata$histov22,
-                                     levels = custom_order)
+                                     levels = custom_orderv22)
 
-# ── Gene list  ─────────────────────
+# ── Gene list ─────────────────────────────────────────────────────────────────
+
 gene_list <- unique(data.long.coldata$GeneID)
 
 # ── UI ────────────────────────────────────────────────────────────────────────
@@ -66,8 +71,13 @@ ui <- fluidPage(
       checkboxGroupInput(
         inputId  = "selected_groups",
         label    = "Sample groups to display",
-        choices  = custom_order,
-        selected = custom_order
+        choices  = custom_orderv22,
+        selected = custom_orderv22
+      ),
+      checkboxInput(
+        inputId = "split_female",
+        label   = "Split F into NBF and BF",
+        value   = FALSE
       ),
       checkboxGroupInput(
         inputId  = "plot_type",
@@ -96,7 +106,6 @@ ui <- fluidPage(
     ),
     mainPanel(
       uiOutput("boxplot_ui")
-      
     )
   )
 )
@@ -105,15 +114,41 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
-  make_plot <- reactive({
-    req(input$genes)
-    data.long.coldata %>%
+  plot_data <- reactive({
+    df <- data.long.coldata %>%
       filter(GeneID %in% input$genes) %>%
-      filter(histov22 %in% input$selected_groups) %>%   
-      mutate(histov22 = factor(histov22, levels = custom_order)) %>%
-      ggplot(aes(x = histov22, y = expression, fill = histov22)) +
-      (if ("violin" %in% input$plot_type) geom_violin(alpha = 0.5) else NULL) +
-      (if ("boxplot" %in% input$plot_type) geom_boxplot(outlier.size = 0.5) else NULL) +      scale_fill_manual(values = custom_colors) +
+      filter(histov22 %in% input$selected_groups)
+    
+    if (input$split_female) {
+      df <- df %>%
+        mutate(plot_group = ifelse(histov22 == "F", histov2, as.character(histov22)))
+      group_order  <- custom_orderv2
+      group_colors <- custom_colorsv2
+    } else {
+      df <- df %>%
+        mutate(plot_group = as.character(histov22))
+      group_order  <- custom_orderv22
+      group_colors <- custom_colorsv22
+    }
+    
+    df$plot_group <- factor(df$plot_group, levels = group_order)
+    list(df = df, order = group_order, colors = group_colors)
+  })
+  
+  make_plot <- reactive({
+    req(input$genes, input$plot_type, length(input$selected_groups) > 0)
+    validate(
+      need(length(input$plot_type) > 0, "Please select at least one plot type."),
+      need(length(input$selected_groups) > 0, "Please select at least one sample group.")
+    )
+    
+    pd <- plot_data()
+    
+    pd$df %>%
+      ggplot(aes(x = plot_group, y = expression, fill = plot_group)) +
+      (if ("violin" %in% input$plot_type) geom_violin(alpha = 0.6) else NULL) +
+      (if ("boxplot" %in% input$plot_type) geom_boxplot(size = 0.3, outlier.size = 0.3, width = 0.6) else NULL) +
+      scale_fill_manual(values = pd$colors) +
       labs(y = "Variance stabilised counts", x = "Sample") +
       facet_wrap(~ GeneID,
                  scales      = if (input$free_scales) "free" else "fixed",
@@ -159,4 +194,3 @@ server <- function(input, output, session) {
 # ── Run ───────────────────────────────────────────────────────────────────────
 
 shinyApp(ui, server)
-
